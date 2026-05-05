@@ -52,7 +52,6 @@
         .saldo-utama { background: var(--primary); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 15px; }
         .saldo-box { font-size: clamp(20px, 5vw, 28px); font-weight: bold; }
 
-        /* Fitur Pencarian / Track Nama */
         .search-section { 
             background: #e3f2fd; 
             padding: 15px; 
@@ -112,7 +111,6 @@
         <div class="saldo-box" id="display-saldo-all">Rp 0</div>
     </div>
 
-    <!-- FITUR BARU: LACAK HISTORY NAMA -->
     <div class="search-section">
         <label style="color: var(--info);">🔍 Lacak History Nama / Keterangan:</label>
         <div class="row">
@@ -224,11 +222,8 @@
         const bulanFilter = document.getElementById('filter-bulan').value;
         const namaFilter = document.getElementById('search-nama').value.toLowerCase();
         
-        // 1. Filter Data
         let filtered = listTransaksi;
         
-        // Jika sedang mencari nama, cari di SEMUA data (mengabaikan filter bulan agar history lengkap terlihat)
-        // Namun jika input nama kosong, gunakan filter bulan normal
         if (namaFilter !== "") {
             filtered = filtered.filter(x => x.ket.toLowerCase().includes(namaFilter));
             document.getElementById('search-summary').style.display = 'block';
@@ -239,7 +234,6 @@
 
         filtered.sort((a,b) => new Date(b.tgl) - new Date(a.tgl));
 
-        // 2. Hitung Statistik untuk pencarian/filter aktif
         let tIn = 0, tOut = 0;
         filtered.forEach(x => x.tipe === 'in' ? tIn += x.nom : tOut += x.nom);
 
@@ -251,19 +245,16 @@
             `;
         }
 
-        // Statistik Bulanan (Hanya jika tidak sedang mencari nama)
         let sAwal = saldoBulanan[bulanFilter] || 0;
         document.getElementById('stat-awal-bulan').innerText = "Rp " + sAwal.toLocaleString('id-ID');
         document.getElementById('stat-akhir-bulan').innerText = "Rp " + (sAwal + tIn - tOut).toLocaleString('id-ID');
 
-        // 3. Saldo Global (Tetap berdasarkan semua data)
         let totalGlobal = 0;
         listTransaksi.forEach(x => x.tipe === 'in' ? totalGlobal += x.nom : totalGlobal -= x.nom);
         const keys = Object.keys(saldoBulanan).sort();
         if(keys.length > 0) totalGlobal += (saldoBulanan[keys[0]] || 0);
         document.getElementById('display-saldo-all').innerText = "Rp " + totalGlobal.toLocaleString('id-ID');
 
-        // 4. Pagination
         const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
         if (currentPage > totalPages) currentPage = totalPages;
         const start = (currentPage - 1) * itemsPerPage;
@@ -297,7 +288,6 @@
         localStorage.setItem('kas_v12_awal_bulanan', JSON.stringify(saldoBulanan));
     }
 
-    // --- FUNGSI DASAR ---
     function simpanTransaksi() {
         const tgl = document.getElementById('tgl').value, ket = document.getElementById('ket').value, nom = parseInt(document.getElementById('nom').value);
         if (!tgl || !ket || !nom) return alert("Lengkapi data!");
@@ -306,10 +296,16 @@
     }
 
     function changePage(dir) { currentPage += dir; render(); }
+    
     function aturSaldoAwal() {
         const m = document.getElementById('filter-bulan').value;
-        const n = prompt("Saldo Awal " + m + ":", saldoBulanan[m] || 0);
-        if (n !== null) { saldoBulanan[m] = parseInt(n) || 0; render(); }
+        const passwordInput = prompt("Masukkan password untuk mengatur saldo awal:");
+        if (passwordInput === "admin") {
+            const n = prompt("Saldo Awal " + m + ":", saldoBulanan[m] || 0);
+            if (n !== null) { saldoBulanan[m] = parseInt(n) || 0; render(); }
+        } else if (passwordInput !== null) {
+            alert("Password salah!");
+        }
     }
 
     function resetForm() { document.getElementById('ket').value = ''; document.getElementById('nom').value = ''; }
@@ -329,7 +325,19 @@
     }
 
     function batalEdit() { editIndex = -1; resetForm(); document.getElementById('btn-simpan').style.display = 'block'; document.getElementById('edit-actions').style.display = 'none'; }
-    function hapus(i) { if(confirm("Hapus?")) { listTransaksi.splice(i,1); render(); } }
+    
+    // FUNGSI HAPUS DENGAN PASSWORD
+    function hapus(i) {
+        const passwordInput = prompt("Masukkan password untuk menghapus transaksi:");
+        if (passwordInput === "admin") {
+            if(confirm("Apakah Anda yakin ingin menghapus data ini?")) {
+                listTransaksi.splice(i, 1);
+                render();
+            }
+        } else if (passwordInput !== null) {
+            alert("Password salah! Anda tidak memiliki akses untuk menghapus data.");
+        }
+    }
 
     function exportToExcel() {
         const m = document.getElementById('filter-bulan').value;
