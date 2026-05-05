@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -168,7 +169,8 @@
                 <option value="Pak wagimin">Pak wagimin</option>
                 <option value="custom">Nama Lainnya...</option>
             </select>
-            <input type="text" id="ket" placeholder="Input nama manual..." style="display:none; margin-top:5px;">
+            <!-- Input keterangan yang akan menyimpan nama final -->
+            <input type="text" id="ket" placeholder="Nama otomatis/manual..." style="display:none; margin-top:5px;">
         </div>
     </div>
     <div class="row">
@@ -239,6 +241,7 @@
     document.getElementById('tgl').valueAsDate = now;
     document.getElementById('filter-bulan').value = now.toISOString().substring(0, 7);
 
+    // FUNGSI 1: Handle Perubahan Nama
     function handleNamaChange() {
         const select = document.getElementById('select-nama');
         const inputKet = document.getElementById('ket');
@@ -252,6 +255,7 @@
         }
     }
 
+    // FUNGSI 2: Handle Auto-Nominal (PERBAIKAN)
     function handleKategoriChange() {
         const kat = document.getElementById('klasifikasi').value;
         const inputNom = document.getElementById('nom');
@@ -266,6 +270,8 @@
         } else if (kat === "Belum Bayar") {
             inputNom.value = 0;
             selectTipe.value = "in";
+        } else {
+            inputNom.value = "";
         }
     }
 
@@ -348,7 +354,7 @@
               ket = document.getElementById('ket').value, 
               nom = parseInt(document.getElementById('nom').value);
         
-        if (!tgl || !ket || isNaN(nom)) return alert("Lengkapi data (Nama & Nominal)!");
+        if (!tgl || !ket || isNaN(nom)) return alert("Lengkapi data (Pilih Nama & Nominal)!");
         
         listTransaksi.push({ 
             tgl, ket, nom, 
@@ -364,13 +370,14 @@
         document.getElementById('select-nama').value = '';
         document.getElementById('ket').style.display = 'none';
         document.getElementById('klasifikasi').value = 'Kas';
+        handleKategoriChange(); // Reset nominal ke default Kas
     }
 
     function persiapanEdit(idx) {
         editIndex = idx; const item = listTransaksi[idx];
         document.getElementById('tgl').value = item.tgl; 
         document.getElementById('ket').value = item.ket;
-        document.getElementById('ket').style.display = 'block';
+        document.getElementById('ket').style.display = 'block'; 
         document.getElementById('nom').value = item.nom; 
         document.getElementById('tipe').value = item.tipe;
         document.getElementById('klasifikasi').value = item.klasifikasi;
@@ -439,8 +446,10 @@
         reader.readAsText(file);
     }
 
+    // Jalankan auto-nominal di awal agar saat load pertama sudah terisi
     handleKategoriChange();
     render();
 </script>
 </body>
 </html>
+```
