@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Kas Pro - Pelacakan Nama</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #1a73e8;
+            --success: #1d6f42;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --info: #0288d1;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: #eef2f7; margin: 0; padding: 10px; display: flex; justify-content: center; }
+        
+        .card { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 900px; 
+            box-sizing: border-box;
+        }
+
+        h2, h3 { text-align: center; color: #333; margin: 5px 0; }
+        
+        .menu-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 10px; 
+            margin-bottom: 15px; 
+        }
+
+        .btn-action { 
+            padding: 12px 5px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 11px; 
+            color: white; 
+        }
+
+        .bg-excel { background: var(--success); }
+        .bg-json { background: #5f6368; }
+        .bg-import { background: #8e44ad; }
+
+        .saldo-utama { background: var(--primary); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 15px; }
+        .saldo-box { font-size: clamp(20px, 5vw, 28px); font-weight: bold; }
+
+        .search-section { 
+            background: #e3f2fd; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            border: 1px solid #90caf9;
+        }
+
+        .filter-section { background: #fffde7; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ffe082; }
+        .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .row > div { flex: 1; min-width: 140px; }
+
+        .dashboard-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .stat-card { background: #f8f9fa; padding: 10px; border-radius: 8px; border-left: 4px solid #ddd; }
+        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; font-weight: bold; }
+        .stat-value { font-size: 14px; font-weight: bold; }
+
+        label { font-size: 11px; color: #666; font-weight: bold; display: block; margin-bottom: 4px; }
+        input, select, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 14px; }
+        
+        .btn-utama { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; }
+
+        .table-container { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
+        th { background: #f8f9fa; padding: 12px 10px; text-align: left; border-bottom: 2px solid #ddd; }
+        td { padding: 12px 10px; border-bottom: 1px solid #eee; }
+        
+        .controls-bawah { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-top: 15px; gap: 15px; padding-top: 10px; border-top: 1px solid #eee; }
+        .pagination { display: flex; align-items: center; gap: 10px; }
+        .btn-page { width: auto; padding: 6px 15px; background: white; border: 1px solid var(--primary); color: var(--primary); cursor: pointer; border-radius: 6px; font-weight: bold; }
+
+        .badge { background: #e1f5fe; color: #01579b; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .badge-warning { background: #fff3e0; color: #e65100; }
+        .plus { color: var(--success); font-weight: bold; }
+        .minus { color: var(--danger); font-weight: bold; }
+        .nol { color: #999; font-style: italic; }
+
+        @media (max-width: 480px) {
+            .menu-grid { grid-template-columns: 1fr; }
+            .row > div { flex: 1 1 100%; }
+            .controls-bawah { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Kas & Sampah Pro</h2>
+
+    <div class="menu-grid">
+        <button class="btn-action bg-excel" onclick="exportToExcel()">📊 EXCEL</button>
+        <button class="btn-action bg-json" onclick="exportFullData()">💾 BACKUP</button>
+        <button class="btn-action bg-import" onclick="document.getElementById('fileInput').click()">📥 IMPORT</button>
+        <input type="file" id="fileInput" style="display:none" accept=".json, .xlsx, .xls" onchange="handleImport(event)">
+    </div>
+
+    <div class="saldo-utama">
+        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">Total Saldo Berjalan (Global)</div>
+        <div class="saldo-box" id="display-saldo-all">Rp 0</div>
+    </div>
+
+    <div class="search-section">
+        <label style="color: var(--info);">🔍 Lacak History Nama / Keterangan:</label>
+        <div class="row">
+            <div style="flex: 3;">
+                <input type="text" id="search-nama" placeholder="Masukkan nama warga atau kata kunci..." onkeyup="currentPage=1; render();">
+            </div>
+            <div style="flex: 1;">
+                <button onclick="document.getElementById('search-nama').value=''; render();" style="background:#999; color:white; border:none;">Reset</button>
+            </div>
+        </div>
+        <div id="search-summary" style="display:none; margin-top:10px; font-size: 12px; border-top: 1px dashed #90caf9; padding-top: 10px;">
+            <span id="search-result-text"></span>
+        </div>
+    </div>
+
+    <div class="filter-section">
+        <div class="row">
+            <div style="flex:2">
+                <label>Filter Bulan:</label>
+                <input type="month" id="filter-bulan" onchange="currentPage=1; render();">
+            </div>
+            <div>
+                <label>&nbsp;</label>
+                <button onclick="aturSaldoAwal()" style="background: var(--warning); color:white; border:none; height:40px;">SET AWAL</button>
+            </div>
+        </div>
+        <div class="dashboard-detail">
+            <div class="stat-card" style="border-left-color: var(--primary);"><div class="stat-label">Saldo Awal Bulan</div><div class="stat-value" id="stat-awal-bulan">0</div></div>
+            <div class="stat-card" style="border-left-color: var(--warning);"><div class="stat-label">Estimasi Akhir</div><div class="stat-value" id="stat-akhir-bulan">0</div></div>
+        </div>
+    </div>
+
+    <hr>
+    
+    <h3 id="form-title">Input Transaksi</h3>
+    <div class="row">
+        <div><label>Tanggal</label><input type="date" id="tgl"></div>
+        <div style="flex: 2;">
+            <label>Pilih Nama Warga</label>
+            <select id="select-nama" onchange="handleNamaChange()">
+                <option value="">-- Pilih Nama --</option>
+                <option value="Sunandar">Sunandar</option>
+                <option value="Akbar A2">Akbar A2</option>
+                <option value="Tedi">Tedi</option>
+                <option value="Iwan">Iwan</option>
+                <option value="Akbar A5">Akbar A5</option>
+                <option value="Herman">Herman</option>
+                <option value="Apip">Apip</option>
+                <option value="Budi">Budi</option>
+                <option value="Kontrakan pak wagimin">Kontrakan pak wagimin</option>
+                <option value="Pak Rizal">Pak Rizal</option>
+                <option value="Rifal">Rifal</option>
+                <option value="Pak wagimin">Pak wagimin</option>
+                <option value="custom">Nama Lainnya...</option>
+            </select>
+            <input type="text" id="ket" placeholder="Input nama manual..." style="display:none; margin-top:5px;">
+        </div>
+    </div>
+    <div class="row">
+        <div>
+            <label>Kategori</label>
+            <select id="klasifikasi" onchange="handleKategoriChange()">
+                <option value="Kas">Kas</option>
+                <option value="Sampah">Sampah</option>
+                <option value="Belum Bayar">Belum Bayar</option>
+                <option value="Lainnya">Lainnya</option>
+            </select>
+        </div>
+        <div><label>Nominal (Rp)</label><input type="number" id="nom" placeholder="0"></div>
+        <div>
+            <label>Jenis</label>
+            <select id="tipe">
+                <option value="in">Masuk (+)</option>
+                <option value="out">Keluar (-)</option>
+            </select>
+        </div>
+    </div>
+    <button class="btn-utama" id="btn-simpan" onclick="simpanTransaksi()" style="margin-top: 10px; padding: 12px;">Simpan Transaksi</button>
+    <div id="edit-actions" style="display: none; gap: 10px; margin-top: 10px;">
+        <button class="btn-utama" style="background: var(--warning);" onclick="updateTransaksi()">Update</button>
+        <button class="btn-utama" style="background: #999;" onclick="batalEdit()">Batal</button>
+    </div>
+
+    <div class="table-container">
+        <table id="tabel-kas">
+            <thead>
+                <tr>
+                    <th>Detail Transaksi</th>
+                    <th>Kat</th>
+                    <th>Jumlah</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-body"></tbody>
+        </table>
+    </div>
+
+    <div class="controls-bawah">
+        <div class="entries-control" style="display:flex; align-items:center; gap:5px; font-size:12px;">
+            <span>Tampilkan:</span>
+            <select id="limit-data" style="width:auto;" onchange="itemsPerPage = parseInt(this.value); currentPage=1; render();">
+                <option value="10">10</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <div class="pagination">
+            <button class="btn-page" id="btn-prev" onclick="changePage(-1)">◀ Prev</button>
+            <span id="page-info" style="font-size:12px; font-weight:bold; color:#555;">Hal 1 / 1</span>
+            <button class="btn-page" id="btn-next" onclick="changePage(1)">Next ▶</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let listTransaksi = JSON.parse(localStorage.getItem('kas_v12_data')) || [];
+    let saldoBulanan = JSON.parse(localStorage.getItem('kas_v12_awal_bulanan')) || {};
+    let editIndex = -1;
+    let currentPage = 1;
+    let itemsPerPage = 10;
+
+    const now = new Date();
+    document.getElementById('tgl').valueAsDate = now;
+    document.getElementById('filter-bulan').value = now.toISOString().substring(0, 7);
+
+    function handleNamaChange() {
+        const select = document.getElementById('select-nama');
+        const inputKet = document.getElementById('ket');
+        if (select.value === "custom") {
+            inputKet.style.display = "block";
+            inputKet.value = "";
+            inputKet.focus();
+        } else {
+            inputKet.style.display = "none";
+            inputKet.value = select.value;
+        }
+    }
+
+    function handleKategoriChange() {
+        const kat = document.getElementById('klasifikasi').value;
+        const inputNom = document.getElementById('nom');
+        const selectTipe = document.getElementById('tipe');
+
+        if (kat === "Kas") {
+            inputNom.value = 20000;
+            selectTipe.value = "in";
+        } else if (kat === "Sampah") {
+            inputNom.value = 30000;
+            selectTipe.value = "in";
+        } else if (kat === "Belum Bayar") {
+            inputNom.value = 0;
+            selectTipe.value = "in";
+        }
+    }
+
+    function render() {
+        const tbody = document.getElementById('tabel-body');
+        const bulanFilter = document.getElementById('filter-bulan').value;
+        const namaFilter = document.getElementById('search-nama').value.toLowerCase();
+        
+        let filtered = listTransaksi;
+        
+        if (namaFilter !== "") {
+            filtered = filtered.filter(x => x.ket.toLowerCase().includes(namaFilter));
+            document.getElementById('search-summary').style.display = 'block';
+        } else {
+            filtered = filtered.filter(x => x.tgl.substring(0, 7) === bulanFilter);
+            document.getElementById('search-summary').style.display = 'none';
+        }
+
+        filtered.sort((a,b) => new Date(b.tgl) - new Date(a.tgl));
+
+        let tIn = 0, tOut = 0;
+        filtered.forEach(x => x.tipe === 'in' ? tIn += x.nom : tOut += x.nom);
+
+        if (namaFilter !== "") {
+            document.getElementById('search-result-text').innerHTML = `
+                History untuk <b>"${namaFilter}"</b>: 
+                <span class="plus">Total Masuk: Rp ${tIn.toLocaleString('id-ID')}</span> | 
+                <span class="minus">Total Keluar: Rp ${tOut.toLocaleString('id-ID')}</span>
+            `;
+        }
+
+        let sAwal = saldoBulanan[bulanFilter] || 0;
+        document.getElementById('stat-awal-bulan').innerText = "Rp " + sAwal.toLocaleString('id-ID');
+        document.getElementById('stat-akhir-bulan').innerText = "Rp " + (sAwal + tIn - tOut).toLocaleString('id-ID');
+
+        let totalGlobal = 0;
+        listTransaksi.forEach(x => x.tipe === 'in' ? totalGlobal += x.nom : totalGlobal -= x.nom);
+        const keys = Object.keys(saldoBulanan).sort();
+        if(keys.length > 0) totalGlobal += (saldoBulanan[keys[0]] || 0);
+        document.getElementById('display-saldo-all').innerText = "Rp " + totalGlobal.toLocaleString('id-ID');
+
+        const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+        if (currentPage > totalPages) currentPage = totalPages;
+        const start = (currentPage - 1) * itemsPerPage;
+        const pagedItems = filtered.slice(start, start + itemsPerPage);
+
+        document.getElementById('page-info').innerText = `Hal ${currentPage} / ${totalPages}`;
+        document.getElementById('btn-prev').disabled = currentPage === 1;
+        document.getElementById('btn-next').disabled = currentPage === totalPages;
+
+        tbody.innerHTML = pagedItems.map((x) => {
+            const oIdx = listTransaksi.indexOf(x);
+            let classNominal = x.tipe === 'in' ? 'plus' : 'minus';
+            if (x.nom === 0) classNominal = 'nol';
+
+            return `<tr>
+                <td>
+                    <div style="font-size:11px; color:#888;">${x.tgl}</div>
+                    <div style="font-weight:bold;">${x.ket}</div>
+                </td>
+                <td><span class="badge ${x.klasifikasi === 'Belum Bayar' ? 'badge-warning' : ''}">${x.klasifikasi}</span></td>
+                <td class="${classNominal}">
+                    ${x.nom === 0 ? 'BELUM BAYAR' : (x.tipe === 'in' ? '+' : '-') + ' ' + x.nom.toLocaleString('id-ID')}
+                </td>
+                <td>
+                    <div style="display:flex; gap:5px;">
+                        <button onclick="persiapanEdit(${oIdx})" style="border:none; background:var(--warning); color:white; padding:6px; border-radius:4px; cursor:pointer;">✎</button>
+                        <button onclick="hapus(${oIdx})" style="border:none; background:var(--danger); color:white; padding:6px; border-radius:4px; cursor:pointer;">✕</button>
+                    </div>
+                </td>
+            </tr>`
+        }).join('');
+
+        localStorage.setItem('kas_v12_data', JSON.stringify(listTransaksi));
+        localStorage.setItem('kas_v12_awal_bulanan', JSON.stringify(saldoBulanan));
+    }
+
+    function simpanTransaksi() {
+        const tgl = document.getElementById('tgl').value, 
+              ket = document.getElementById('ket').value, 
+              nom = parseInt(document.getElementById('nom').value);
+        
+        if (!tgl || !ket || isNaN(nom)) return alert("Lengkapi data (Nama & Nominal)!");
+        
+        listTransaksi.push({ 
+            tgl, ket, nom, 
+            tipe: document.getElementById('tipe').value, 
+            klasifikasi: document.getElementById('klasifikasi').value 
+        });
+        resetForm(); render();
+    }
+
+    function resetForm() { 
+        document.getElementById('ket').value = ''; 
+        document.getElementById('nom').value = ''; 
+        document.getElementById('select-nama').value = '';
+        document.getElementById('ket').style.display = 'none';
+        document.getElementById('klasifikasi').value = 'Kas';
+    }
+
+    function persiapanEdit(idx) {
+        editIndex = idx; const item = listTransaksi[idx];
+        document.getElementById('tgl').value = item.tgl; 
+        document.getElementById('ket').value = item.ket;
+        document.getElementById('ket').style.display = 'block';
+        document.getElementById('nom').value = item.nom; 
+        document.getElementById('tipe').value = item.tipe;
+        document.getElementById('klasifikasi').value = item.klasifikasi;
+        document.getElementById('btn-simpan').style.display = 'none'; 
+        document.getElementById('edit-actions').style.display = 'flex';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateTransaksi() {
+        listTransaksi[editIndex] = { 
+            tgl: document.getElementById('tgl').value, 
+            ket: document.getElementById('ket').value, 
+            nom: parseInt(document.getElementById('nom').value), 
+            tipe: document.getElementById('tipe').value, 
+            klasifikasi: document.getElementById('klasifikasi').value 
+        };
+        batalEdit(); render();
+    }
+
+    function batalEdit() { 
+        editIndex = -1; 
+        resetForm(); 
+        document.getElementById('btn-simpan').style.display = 'block'; 
+        document.getElementById('edit-actions').style.display = 'none'; 
+    }
+
+    function hapus(i) {
+        const passwordInput = prompt("Masukkan password untuk menghapus:");
+        if (passwordInput === "admin") {
+            if(confirm("Hapus data ini?")) { listTransaksi.splice(i, 1); render(); }
+        } else if (passwordInput !== null) { alert("Password salah!"); }
+    }
+
+    function changePage(dir) { currentPage += dir; render(); }
+
+    function aturSaldoAwal() {
+        const m = document.getElementById('filter-bulan').value;
+        const passwordInput = prompt("Masukkan password:");
+        if (passwordInput === "admin") {
+            const n = prompt("Saldo Awal " + m + ":", saldoBulanan[m] || 0);
+            if (n !== null) { saldoBulanan[m] = parseInt(n) || 0; render(); }
+        }
+    }
+
+    function exportToExcel() {
+        const m = document.getElementById('filter-bulan').value;
+        const filtered = listTransaksi.filter(x => x.tgl.substring(0, 7) === m);
+        const ws = XLSX.utils.json_to_sheet(filtered);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+        XLSX.writeFile(wb, `Kas_${m}.xlsx`);
+    }
+
+    function exportFullData() {
+        const blob = new Blob([JSON.stringify({transaksi: listTransaksi, saldo: saldoBulanan})], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_kas.json`; a.click();
+    }
+
+    function handleImport(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = JSON.parse(e.target.result);
+            listTransaksi = data.transaksi; saldoBulanan = data.saldo; render();
+        };
+        reader.readAsText(file);
+    }
+
+    handleKategoriChange();
+    render();
+</script>
+</body>
+</html>
