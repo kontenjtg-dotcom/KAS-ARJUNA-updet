@@ -84,8 +84,10 @@
         .btn-page { width: auto; padding: 6px 15px; background: white; border: 1px solid var(--primary); color: var(--primary); cursor: pointer; border-radius: 6px; font-weight: bold; }
 
         .badge { background: #e1f5fe; color: #01579b; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .badge-warning { background: #fff3e0; color: #e65100; }
         .plus { color: var(--success); font-weight: bold; }
         .minus { color: var(--danger); font-weight: bold; }
+        .nol { color: #999; font-style: italic; }
 
         @media (max-width: 480px) {
             .menu-grid { grid-template-columns: 1fr; }
@@ -148,18 +150,38 @@
     <h3 id="form-title">Input Transaksi</h3>
     <div class="row">
         <div><label>Tanggal</label><input type="date" id="tgl"></div>
-        <div style="flex: 2;"><label>Keterangan (Nama/Detail)</label><input type="text" id="ket" placeholder="Contoh: Bpk. Budi - Iuran Kas"></div>
+        <div style="flex: 2;">
+            <label>Pilih Nama Warga</label>
+            <select id="select-nama" onchange="handleNamaChange()">
+                <option value="">-- Pilih Nama --</option>
+                <option value="Sunandar">Sunandar</option>
+                <option value="Akbar A2">Akbar A2</option>
+                <option value="Tedi">Tedi</option>
+                <option value="Iwan">Iwan</option>
+                <option value="Akbar A5">Akbar A5</option>
+                <option value="Herman">Herman</option>
+                <option value="Apip">Apip</option>
+                <option value="Budi">Budi</option>
+                <option value="Kontrakan pak wagimin">Kontrakan pak wagimin</option>
+                <option value="Pak Rizal">Pak Rizal</option>
+                <option value="Rifal">Rifal</option>
+                <option value="Pak wagimin">Pak wagimin</option>
+                <option value="custom">Nama Lainnya...</option>
+            </select>
+            <input type="text" id="ket" placeholder="Input nama manual..." style="display:none; margin-top:5px;">
+        </div>
     </div>
     <div class="row">
-        <div><label>Nominal (Rp)</label><input type="number" id="nom" placeholder="0"></div>
         <div>
             <label>Kategori</label>
-            <select id="klasifikasi">
+            <select id="klasifikasi" onchange="handleKategoriChange()">
                 <option value="Kas">Kas</option>
                 <option value="Sampah">Sampah</option>
+                <option value="Belum Bayar">Belum Bayar</option>
                 <option value="Lainnya">Lainnya</option>
             </select>
         </div>
+        <div><label>Nominal (Rp)</label><input type="number" id="nom" placeholder="0"></div>
         <div>
             <label>Jenis</label>
             <select id="tipe">
@@ -217,6 +239,36 @@
     document.getElementById('tgl').valueAsDate = now;
     document.getElementById('filter-bulan').value = now.toISOString().substring(0, 7);
 
+    function handleNamaChange() {
+        const select = document.getElementById('select-nama');
+        const inputKet = document.getElementById('ket');
+        if (select.value === "custom") {
+            inputKet.style.display = "block";
+            inputKet.value = "";
+            inputKet.focus();
+        } else {
+            inputKet.style.display = "none";
+            inputKet.value = select.value;
+        }
+    }
+
+    function handleKategoriChange() {
+        const kat = document.getElementById('klasifikasi').value;
+        const inputNom = document.getElementById('nom');
+        const selectTipe = document.getElementById('tipe');
+
+        if (kat === "Kas") {
+            inputNom.value = 20000;
+            selectTipe.value = "in";
+        } else if (kat === "Sampah") {
+            inputNom.value = 30000;
+            selectTipe.value = "in";
+        } else if (kat === "Belum Bayar") {
+            inputNom.value = 0;
+            selectTipe.value = "in";
+        }
+    }
+
     function render() {
         const tbody = document.getElementById('tabel-body');
         const bulanFilter = document.getElementById('filter-bulan').value;
@@ -266,14 +318,17 @@
 
         tbody.innerHTML = pagedItems.map((x) => {
             const oIdx = listTransaksi.indexOf(x);
+            let classNominal = x.tipe === 'in' ? 'plus' : 'minus';
+            if (x.nom === 0) classNominal = 'nol';
+
             return `<tr>
                 <td>
                     <div style="font-size:11px; color:#888;">${x.tgl}</div>
                     <div style="font-weight:bold;">${x.ket}</div>
                 </td>
-                <td><span class="badge">${x.klasifikasi}</span></td>
-                <td class="${x.tipe === 'in' ? 'plus' : 'minus'}">
-                    ${x.tipe === 'in' ? '+' : '-'} ${x.nom.toLocaleString('id-ID')}
+                <td><span class="badge ${x.klasifikasi === 'Belum Bayar' ? 'badge-warning' : ''}">${x.klasifikasi}</span></td>
+                <td class="${classNominal}">
+                    ${x.nom === 0 ? 'BELUM BAYAR' : (x.tipe === 'in' ? '+' : '-') + ' ' + x.nom.toLocaleString('id-ID')}
                 </td>
                 <td>
                     <div style="display:flex; gap:5px;">
@@ -289,53 +344,74 @@
     }
 
     function simpanTransaksi() {
-        const tgl = document.getElementById('tgl').value, ket = document.getElementById('ket').value, nom = parseInt(document.getElementById('nom').value);
-        if (!tgl || !ket || !nom) return alert("Lengkapi data!");
-        listTransaksi.push({ tgl, ket, nom, tipe: document.getElementById('tipe').value, klasifikasi: document.getElementById('klasifikasi').value });
+        const tgl = document.getElementById('tgl').value, 
+              ket = document.getElementById('ket').value, 
+              nom = parseInt(document.getElementById('nom').value);
+        
+        if (!tgl || !ket || isNaN(nom)) return alert("Lengkapi data (Nama & Nominal)!");
+        
+        listTransaksi.push({ 
+            tgl, ket, nom, 
+            tipe: document.getElementById('tipe').value, 
+            klasifikasi: document.getElementById('klasifikasi').value 
+        });
         resetForm(); render();
     }
 
-    function changePage(dir) { currentPage += dir; render(); }
-    
-    function aturSaldoAwal() {
-        const m = document.getElementById('filter-bulan').value;
-        const passwordInput = prompt("Masukkan password untuk mengatur saldo awal:");
-        if (passwordInput === "admin") {
-            const n = prompt("Saldo Awal " + m + ":", saldoBulanan[m] || 0);
-            if (n !== null) { saldoBulanan[m] = parseInt(n) || 0; render(); }
-        } else if (passwordInput !== null) {
-            alert("Password salah!");
-        }
+    function resetForm() { 
+        document.getElementById('ket').value = ''; 
+        document.getElementById('nom').value = ''; 
+        document.getElementById('select-nama').value = '';
+        document.getElementById('ket').style.display = 'none';
+        document.getElementById('klasifikasi').value = 'Kas';
     }
 
-    function resetForm() { document.getElementById('ket').value = ''; document.getElementById('nom').value = ''; }
-    
     function persiapanEdit(idx) {
         editIndex = idx; const item = listTransaksi[idx];
-        document.getElementById('tgl').value = item.tgl; document.getElementById('ket').value = item.ket;
-        document.getElementById('nom').value = item.nom; document.getElementById('tipe').value = item.tipe;
+        document.getElementById('tgl').value = item.tgl; 
+        document.getElementById('ket').value = item.ket;
+        document.getElementById('ket').style.display = 'block';
+        document.getElementById('nom').value = item.nom; 
+        document.getElementById('tipe').value = item.tipe;
         document.getElementById('klasifikasi').value = item.klasifikasi;
-        document.getElementById('btn-simpan').style.display = 'none'; document.getElementById('edit-actions').style.display = 'flex';
+        document.getElementById('btn-simpan').style.display = 'none'; 
+        document.getElementById('edit-actions').style.display = 'flex';
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function updateTransaksi() {
-        listTransaksi[editIndex] = { tgl: document.getElementById('tgl').value, ket: document.getElementById('ket').value, nom: parseInt(document.getElementById('nom').value), tipe: document.getElementById('tipe').value, klasifikasi: document.getElementById('klasifikasi').value };
+        listTransaksi[editIndex] = { 
+            tgl: document.getElementById('tgl').value, 
+            ket: document.getElementById('ket').value, 
+            nom: parseInt(document.getElementById('nom').value), 
+            tipe: document.getElementById('tipe').value, 
+            klasifikasi: document.getElementById('klasifikasi').value 
+        };
         batalEdit(); render();
     }
 
-    function batalEdit() { editIndex = -1; resetForm(); document.getElementById('btn-simpan').style.display = 'block'; document.getElementById('edit-actions').style.display = 'none'; }
-    
-    // FUNGSI HAPUS DENGAN PASSWORD
+    function batalEdit() { 
+        editIndex = -1; 
+        resetForm(); 
+        document.getElementById('btn-simpan').style.display = 'block'; 
+        document.getElementById('edit-actions').style.display = 'none'; 
+    }
+
     function hapus(i) {
-        const passwordInput = prompt("Masukkan password untuk menghapus transaksi:");
+        const passwordInput = prompt("Masukkan password untuk menghapus:");
         if (passwordInput === "admin") {
-            if(confirm("Apakah Anda yakin ingin menghapus data ini?")) {
-                listTransaksi.splice(i, 1);
-                render();
-            }
-        } else if (passwordInput !== null) {
-            alert("Password salah! Anda tidak memiliki akses untuk menghapus data.");
+            if(confirm("Hapus data ini?")) { listTransaksi.splice(i, 1); render(); }
+        } else if (passwordInput !== null) { alert("Password salah!"); }
+    }
+
+    function changePage(dir) { currentPage += dir; render(); }
+
+    function aturSaldoAwal() {
+        const m = document.getElementById('filter-bulan').value;
+        const passwordInput = prompt("Masukkan password:");
+        if (passwordInput === "admin") {
+            const n = prompt("Saldo Awal " + m + ":", saldoBulanan[m] || 0);
+            if (n !== null) { saldoBulanan[m] = parseInt(n) || 0; render(); }
         }
     }
 
@@ -363,6 +439,7 @@
         reader.readAsText(file);
     }
 
+    handleKategoriChange();
     render();
 </script>
 </body>
